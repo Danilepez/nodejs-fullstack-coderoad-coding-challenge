@@ -31,6 +31,12 @@ jobs:
         working-directory: ${{ matrix.project }}
         run: npm test
         
+      - name: Build Client (Generate production files)
+        # Solo ejecuta el build para el proyecto 'client'
+        if: ${{ matrix.project == 'client' }}
+        working-directory: ${{ matrix.project }}
+        run: npm run build # Asume que tu package.json tiene el script 'build'
+        
 #Despliegue a servidor EC2
   deploy:
     needs: build # Asegura que el despliegue solo corra si 'build' tuvo éxito en todos los proyectos
