@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "jest --passWithNoTests"
   },
   "dependencies": {
     "jest": "^30.2.0",

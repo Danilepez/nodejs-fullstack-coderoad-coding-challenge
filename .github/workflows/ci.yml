@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        project: [client, server]  # Se ejecutará para ambos proyectos
+        project: [client, server]
 
     steps:
       - name: Checkout code
@@ -23,11 +23,64 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      - name: Install dependencies (${{ matrix.project }})
         working-directory: ${{ matrix.project }}
         run: npm install
 
-      - name: Run tests
+      - name: Run tests (${{ matrix.project }})
         working-directory: ${{ matrix.project }}
         run: npm test
+        
+#Despliegue a servidor EC2
+  deploy:
+    needs: build # Asegura que el despliegue solo corra si 'build' tuvo éxito en todos los proyectos
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Copy Server Files via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          # Copia archivos del server (donde se ejecutaría Node.js)
+          source: "server/*" 
+          target: "/home/${{ secrets.EC2_USER }}/app/nodejs-fullstack-project/server" # Carpeta donde se ejecutará el backend
 
+      - name: Copy Client Files via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          # Copia el build estático del cliente para ser servido por un servidor web (nginx/apache)
+          source: "client/dist" # Asume que el build del cliente genera una carpeta 'dist'
+          target: "/var/www/html/client" # Ubicación pública del frontend
+          
+      - name: Restart Server Service (SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          # Comando para reiniciar el servicio de Node.js o Docker en EC2 después de la copia
+          script: |
+            # 1. Navegar a la carpeta del backend
+            cd /home/${{ secrets.EC2_USER }}/app/nodejs-fullstack-project/server
+            
+            # 2. Instalar dependencias de producción (si hay cambios)
+            npm install --production
+            
+            # 3. INSTALACIÓN DE PM2 (asegúrate de que está instalado)
+            npm install -g pm2
+            
+            # 4. Iniciar o Reiniciar la aplicación con PM2
+            # El "server.js" debe coincidir con el archivo de inicio de tu servidor.
+            # "nodejs-server" es un nombre identificativo para PM2.
+            pm2 restart nodejs-server || pm2 start server.js --name nodejs-server
+            
+            # 5. Guardar la configuración de PM2 para que sobreviva a reinicios del servidor
+            pm2 save
