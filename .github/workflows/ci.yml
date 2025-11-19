@@ -47,7 +47,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           # Copia archivos del server (donde se ejecutaría Node.js)
-          source: "server/*" 
+          source: "server" 
           target: "/home/${{ secrets.EC2_USER }}/app/nodejs-fullstack-project/server" # Carpeta donde se ejecutará el backend
 
       - name: Copy Client Files via SCP
